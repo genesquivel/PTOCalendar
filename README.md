@@ -17,7 +17,14 @@ simulations persist between opens.
   and end-of-2027. Each month card shows **start → accrued → used → end**, the end
   rolling into the next month, plus **YTD used** and per-day running-balance
   tooltips. PTO in Jan, Mar and Oct all stacks into the year-end figure.
-- **Hours and days** — shows both; set hours-per-day so the conversion stays right.
+- **Hours and days** — every figure (header, month start/accrued/used/end, YTD,
+  tooltips, the day picker) shows both hours **and** day-equivalents; set
+  hours-per-day so the conversion stays right.
+- **Known-balance override** — in Settings, set a *known balance as-of date* to snap
+  the running balance to your real number on that day; the calendar accrues and
+  deducts forward from there.
+- **Per-date projection** — click any day and the picker shows your projected
+  balance **as of that date** (not just the month end); hover any day for the same.
 - **Monthly cumulative** — month-end becomes next month's start, so multi-month
   PTO is fully accounted for.
 - **7 paid VDC holidays** — New Year's, Memorial, Independence, Labor, Thanksgiving,

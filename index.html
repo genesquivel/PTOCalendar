@@ -62,6 +62,7 @@
   .mstats .num{font-weight:700;font-size:13px}
   .mstats .num.acc{color:var(--good)}
   .mstats .num.use{color:var(--pto4)}
+  .mstats .d{display:block;font-size:9.5px;color:var(--muted);margin-top:1px}
   .dow{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;color:var(--muted);
     font-size:10.5px;padding:6px 6px 0}
   .days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding:6px}
@@ -72,6 +73,7 @@
   .day.disabled{opacity:.35;cursor:not-allowed}
   .day:not(.out):not(.disabled):hover{border-color:var(--accent)}
   .day .hh{font-size:9px;line-height:1;margin-top:2px}
+  .day .holmark{font-size:12px}
   .day.weekend{background:#1b2740}
   .day.holiday{background:#3a2c05;color:#fde68a;border-color:#7c5e12}
   .day.pe::after{content:"$";position:absolute;top:2px;right:4px;font-size:9px;color:var(--good);opacity:.8}
@@ -83,7 +85,9 @@
   .day.negbal{box-shadow:inset 0 0 0 2px var(--bad)}
   .pop{position:absolute;z-index:50;background:var(--panel);border:1px solid var(--accent);
     border-radius:10px;padding:8px;box-shadow:0 12px 30px rgba(0,0,0,.5);width:190px}
-  .pop .pd{font-size:12px;color:var(--muted);margin:2px 4px 8px}
+  .pop .pd{font-size:12px;color:var(--muted);margin:2px 4px 4px}
+  .pop .pbal{font-size:12px;margin:0 4px 8px;padding:6px 8px;background:var(--panel2);border-radius:7px}
+  .pop .pbal b{color:var(--accent2)}
   .pop button{display:block;width:100%;text-align:left;margin:3px 0;padding:7px 9px}
   .pop .row{display:flex;gap:6px}
   .pop .row input{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:7px;padding:6px}
@@ -104,8 +108,8 @@
     </div>
     <div class="stats">
       <div class="stat big"><div class="k">Current balance</div><div class="v"><span id="curBal">–</span> <small>hrs</small> <small id="curDays"></small></div></div>
-      <div class="stat"><div class="k">End of 2026</div><div class="v"><span id="end26">–</span> <small>hrs</small></div></div>
-      <div class="stat"><div class="k">End of 2027</div><div class="v"><span id="end27">–</span> <small>hrs</small></div></div>
+      <div class="stat"><div class="k">End of 2026</div><div class="v"><span id="end26">–</span> <small>hrs</small> <small id="end26d"></small></div></div>
+      <div class="stat"><div class="k">End of 2027</div><div class="v"><span id="end27">–</span> <small>hrs</small> <small id="end27d"></small></div></div>
     </div>
   </div>
 </header>
@@ -122,6 +126,12 @@
       <div class="field"><label>Hours per work day</label><input id="cfgHpd" type="number" step="0.5"></div>
       <div class="field"><label>Year-end carryover cap (hrs)</label><input id="cfgCap" type="number" step="1"></div>
       <div class="field"><label>Voluntary quit date (optional — forfeits balance)</label><input id="cfgQuit" type="date"></div>
+      <div class="field"><label>Known balance — as-of date (optional override)</label><input id="cfgAsOfDate" type="date"></div>
+      <div class="field"><label>Known balance — hours on that date</label><input id="cfgAsOfBal" type="number" step="0.01" placeholder="leave blank to disable"></div>
+    </div>
+    <div style="padding:0 16px 14px;color:var(--muted);font-size:12px">
+      Set a <b>known balance as-of date</b> to snap the running balance to your real number on that day —
+      the calendar then accrues and deducts forward from there. Leave the hours blank to turn it off.
     </div>
   </details>
 
@@ -138,7 +148,7 @@
     <span><i class="swatch" style="background:var(--pto4)"></i> Half day (4 hr)</span>
     <span><i class="swatch" style="background:var(--custom)"></i> Custom</span>
     <span><i class="swatch" style="background:var(--nopay)"></i> Out — No Pay (strike)</span>
-    <span><i class="swatch" style="background:var(--holiday)"></i> Paid holiday</span>
+    <span><i class="swatch" style="background:var(--holiday)"></i> 🎉 Paid holiday</span>
     <span><i class="swatch" style="background:var(--good)"></i> $ = biweekly accrual posts</span>
   </div>
 
@@ -165,7 +175,8 @@ const TODAY='2026-08-31'; // "today" per app context; falls back to real date if
 const DEFAULTS={
   name:'Paolo', startDate:'2026-08-22', startBalance:6.90,
   accrualPerPeriod:3.0768, rangeEnd:'2027-12-31', hoursPerDay:8,
-  carryoverCap:120, quitDate:''
+  carryoverCap:120, quitDate:'',
+  asOfDate:'', asOfBalance:''   // optional: force a known real balance on a date
 };
 const KEY='ptoCalendarState.v1';
 
@@ -209,6 +220,11 @@ function compute(){
   const periodEnds=new Set();
   for(let p=addDays(start,14);p<=end;p=addDays(p,14))periodEnds.add(ymd(p));
 
+  // optional "known balance as-of" override
+  const asOfOn = c.asOfDate && c.asOfBalance!=='' && !isNaN(parseFloat(c.asOfBalance));
+  const asOfDate = asOfOn ? c.asOfDate : null;
+  const asOfBal = asOfOn ? parseFloat(c.asOfBalance) : null;
+
   let balance=c.startBalance, quitted=false;
   const daily={}, months={}, forfeitures={}, ytdUsed={};
   const warnings=[]; const overdrawDays=[]; let strikes=0; const strikeDays=[];
@@ -216,6 +232,9 @@ function compute(){
   for(let d=new Date(start); d<=end; d=addDays(d,1)){
     const key=ymd(d), mk=key.slice(0,7), yr=key.slice(0,4);
     if(!(mk in months))months[mk]={start:balance,accrued:0,used:0,end:balance,ytd:0};
+
+    // snap to a known real balance at the start of the as-of day
+    if(asOfDate && key===asOfDate){balance=asOfBal; months[mk].start=balance;}
 
     let accrued=0, used=0;
     const e=state.entries[key];
@@ -290,6 +309,9 @@ function compute(){
   else if(strikes>0)
     warnings.push({bad:false,msg:`${strikes} Out-No-Pay strike(s) recorded (12 = no raises/promotion/bonus).`});
 
+  if(asOfOn)
+    warnings.push({bad:false,msg:`Balance override active: snapped to ${asOfBal.toFixed(2)} hr on ${asOfDate}; figures after that date build from this number.`});
+
   warnings.push({bad:false,note:true,msg:'All PTO requires supervisor approval before it is final.'});
 
   return {daily,months,warnings,holidays,periodEnds,start,end,strikes,ytdUsed};
@@ -310,15 +332,15 @@ function render(){
   const cur=model.daily[TODAY]?model.daily[TODAY].bal:c.startBalance;
   $('curBal').textContent=fmt(cur);
   $('curDays').textContent='('+daysOf(cur)+' d)';
-  const e26=model.daily[dayBefore('2027-01-01')]; // last posted day of 2026 <= range
-  $('end26').textContent = model.daily['2026-12-31']?fmt(model.daily['2026-12-31'].bal):'–';
-  $('end27').textContent = model.daily['2027-12-31']?fmt(model.daily['2027-12-31'].bal):'–';
+  setStatDays('end26','2026-12-31');
+  setStatDays('end27','2027-12-31');
 
   // settings inputs
   $('cfgName').value=c.name; $('cfgStart').value=c.startDate;
   $('cfgStartBal').value=c.startBalance; $('cfgAccrual').value=c.accrualPerPeriod;
   $('cfgEnd').value=c.rangeEnd; $('cfgHpd').value=c.hoursPerDay;
   $('cfgCap').value=c.carryoverCap; $('cfgQuit').value=c.quitDate||'';
+  $('cfgAsOfDate').value=c.asOfDate||''; $('cfgAsOfBal').value=c.asOfBalance;
 
   renderWarnings();
   renderMonths();
@@ -326,6 +348,11 @@ function render(){
   save();
 }
 function dayBefore(s){return ymd(addDays(parseYMD(s),-1));}
+function setStatDays(baseId,dateKey){
+  const info=model.daily[dateKey];
+  $(baseId).textContent = info?fmt(info.bal):'–';
+  $(baseId+'d').textContent = info?'('+daysOf(info.bal)+' d)':'';
+}
 
 function renderWarnings(){
   const box=$('warnings'); box.innerHTML='';
@@ -362,12 +389,12 @@ function monthCard(y,m){
   const ms=model.months[mk]||{start:0,accrued:0,used:0,end:0,ytd:0};
   const card=document.createElement('div'); card.className='month';
   card.dataset.mk=mk;
-  card.innerHTML=`<h3>${MON[m]} ${y}<span class="mb">YTD used ${fmt(ms.ytd)} hr</span></h3>
+  card.innerHTML=`<h3>${MON[m]} ${y}<span class="mb">YTD used ${fmt(ms.ytd)} hr · ${daysOf(ms.ytd)} d</span></h3>
     <div class="mstats">
-      <div><span class="lab">Start</span><span class="num">${fmt(ms.start)}</span></div>
-      <div><span class="lab">Accrued</span><span class="num acc">+${fmt(ms.accrued)}</span></div>
-      <div><span class="lab">Used</span><span class="num use">−${fmt(ms.used)}</span></div>
-      <div><span class="lab">End</span><span class="num">${fmt(ms.end)}</span></div>
+      <div><span class="lab">Start</span><span class="num">${fmt(ms.start)}</span><span class="d">${daysOf(ms.start)} d</span></div>
+      <div><span class="lab">Accrued</span><span class="num acc">+${fmt(ms.accrued)}</span><span class="d">${daysOf(ms.accrued)} d</span></div>
+      <div><span class="lab">Used</span><span class="num use">−${fmt(ms.used)}</span><span class="d">${daysOf(ms.used)} d</span></div>
+      <div><span class="lab">End</span><span class="num">${fmt(ms.end)}</span><span class="d">${daysOf(ms.end)} d</span></div>
     </div>
     <div class="dow">${DOW.map(d=>`<div>${d}</div>`).join('')}</div>`;
   const days=document.createElement('div'); days.className='days';
@@ -392,7 +419,7 @@ function monthCard(y,m){
       else if(e.type==='pto4'){cell.classList.add('pto4');hh='4h';}
       else if(e.type==='pto8'){cell.classList.add('pto8');hh='8h';}
       else{cell.classList.add('custom');hh=e.hours+'h';}
-    } else if(info&&info.holiday){hh='hol';}
+    } else if(info&&info.holiday){cell.classList.add('holcell');hh='<span class="holmark" title="'+info.holiday+'">🎉</span>';}
     if(info&&info.negative)cell.classList.add('negbal');
     cell.innerHTML=`<span>${dnum}</span>${hh?`<span class="hh">${hh}</span>`:''}`;
     if(inRange){
@@ -434,7 +461,9 @@ function openPopover(cell,key){
   popEl=document.createElement('div'); popEl.className='pop';
   popEl.addEventListener('click',ev=>ev.stopPropagation());
   const cur=e?(e.type==='nopay'?'Out — No Pay':e.hours+' hr'):'none';
-  popEl.innerHTML=`<div class="pd">${key} · current: ${cur}</div>`;
+  const info=model.daily[key];
+  const bline=info?`<div class="pbal">Balance on this date: <b>${fmt(info.bal)} hr</b> · ${daysOf(info.bal)} d${info.negative?' ⚠ overdrawn':''}</div>`:'';
+  popEl.innerHTML=`<div class="pd">${key} · current: ${cur}</div>${bline}`;
   const mkBtn=(label,fn,cls='')=>{const b=document.createElement('button');b.textContent=label;if(cls)b.className=cls;b.onclick=()=>{fn();closePopover();render();};return b;};
   popEl.appendChild(mkBtn('Add 4 hr (half day)',()=>setEntry(key,{type:'pto4',hours:4})));
   popEl.appendChild(mkBtn('Add 8 hr (full day)',()=>setEntry(key,{type:'pto8',hours:8})));
@@ -472,6 +501,8 @@ bindCfg('cfgEnd','rangeEnd');
 bindCfg('cfgHpd','hoursPerDay',parseFloat);
 bindCfg('cfgCap','carryoverCap',parseFloat);
 bindCfg('cfgQuit','quitDate',v=>v||'');
+bindCfg('cfgAsOfDate','asOfDate',v=>v||'');
+bindCfg('cfgAsOfBal','asOfBalance',v=>v);
 
 /* ---------- toolbar ---------- */
 $('btnToday').onclick=()=>{

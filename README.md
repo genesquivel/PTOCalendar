@@ -1,0 +1,69 @@
+# PTO Calendar
+
+A single-file, offline PTO/vacation simulator built around **VDC's Section 6.5**
+accrual policy. Open `index.html` in any browser — no build, no server, no
+dependencies. All data is saved in your browser's `localStorage`, so
+simulations persist between opens.
+
+## What it does
+
+- **Tracks Paolo** from **6.90 hrs as of Aug 22, 2026** through **Dec 31, 2027**,
+  accruing **3.0768 hrs per full 80-hr biweekly period** (40 hrs/week, 80 hrs/year).
+  The starting balance — and every other parameter — is manually overridable in
+  **Settings**.
+- **Day-by-day picker** — click any date to add **4 hr**, **8 hr**, a **custom**
+  amount, or mark it **Out — No Pay**. Click again to change or remove it.
+- **Balance everywhere** — header shows current balance plus projected end-of-2026
+  and end-of-2027. Each month card shows **start → accrued → used → end**, the end
+  rolling into the next month, plus **YTD used** and per-day running-balance
+  tooltips. PTO in Jan, Mar and Oct all stacks into the year-end figure.
+- **Hours and days** — shows both; set hours-per-day so the conversion stays right.
+- **Monthly cumulative** — month-end becomes next month's start, so multi-month
+  PTO is fully accounted for.
+- **7 paid VDC holidays** — New Year's, Memorial, Independence, Labor, Thanksgiving,
+  Day after Thanksgiving, Christmas — 8 hrs paid, **not** drawn from PTO.
+
+## Accrual logic (Section 6.5)
+
+- Rate: **0.03846 hrs of vacation per hour worked**
+  - 40 hrs/week → 1.5384 hrs/week
+  - 80 hrs/biweekly → **3.0768 hrs/period**
+  - 2,080 hrs/year → **80 hrs/year** (2 weeks)
+- Accrual posts at each biweekly **period end** (marked `$` on the calendar),
+  anchored to Aug 22, 2026.
+- **No accrual during unpaid leave** — Out-No-Pay hours are subtracted from the
+  period's worked hours, reducing that period's accrual proportionally.
+
+## Rules enforced / flagged
+
+- **Earn first, then use** — no negative balance (overdrawn days are outlined red
+  and flagged as blocking).
+- **120 hr carryover cap** — anything above 120 on Dec 31 is forfeited, with a warning.
+- **2-week / 1-month-gap rule** — when >80 hrs is banked, a single PTO stretch is
+  capped at 2 weeks (80 hr) and consecutive blocks need a 1-month gap; violations
+  are flagged.
+- **Voluntary quit** — set a quit date to forfeit the remaining balance (Texas
+  requires no payout).
+- **Supervisor approval** — standing reminder that all PTO needs approval.
+- **Out — No Pay = strike** — 12 strikes triggers a "no raises / promotion / bonus"
+  warning.
+
+## Baselines
+
+With no PTO entered:
+
+| Milestone | Balance |
+|---|---|
+| End of 2026 | ~34.6 hrs |
+| End of 2027 | ~114.6 hrs (right under the 120 cap) |
+
+> Note: end-of-2026 depends on whether the late-December biweekly period is counted
+> in the year it *ends* (34.6) or the year it's *paid* (~31.5). The model counts it
+> in the year it ends, which makes the end-of-2027 figure land exactly on 114.6.
+> Use the **starting balance override** in Settings to pin any figure you prefer.
+
+## Data
+
+- **Export / Import** buttons save or load your entries and settings as JSON.
+- **Reset all PTO** clears entries but keeps settings.
+- Nothing leaves your browser.

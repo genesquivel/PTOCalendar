@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PTO Calendar</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#243449; --line:#334155;
+    --ink:#e2e8f0; --muted:#94a3b8; --accent:#38bdf8; --accent2:#22d3ee;
+    --pto:#3b82f6; --pto4:#60a5fa; --custom:#a855f7; --nopay:#f43f5e;
+    --holiday:#f59e0b; --good:#34d399; --warn:#fbbf24; --bad:#f87171;
+    --today:#22d3ee;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  a{color:var(--accent)}
+  header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#111c33,#0f172a);
+    border-bottom:1px solid var(--line);padding:14px 20px;}
+  .hrow{display:flex;flex-wrap:wrap;gap:18px;align-items:center;justify-content:space-between;}
+  .brand{display:flex;align-items:baseline;gap:10px}
+  .brand h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.2px}
+  .brand .who{color:var(--muted);font-size:13px}
+  .stats{display:flex;gap:14px;flex-wrap:wrap}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 14px;min-width:120px}
+  .stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .stat .v{font-size:20px;font-weight:700}
+  .stat .v small{font-size:12px;font-weight:500;color:var(--muted)}
+  .stat.big .v{color:var(--accent2)}
+  .wrap{max-width:1200px;margin:0 auto;padding:18px 20px 80px}
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:8px 0 18px}
+  button,.btn{cursor:pointer;font:inherit;border:1px solid var(--line);background:var(--panel);
+    color:var(--ink);padding:7px 12px;border-radius:8px}
+  button:hover{border-color:var(--accent)}
+  .btn.warnbtn{border-color:#7f1d1d;background:#3f1414}
+  details.settings{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:16px}
+  details.settings>summary{cursor:pointer;padding:12px 16px;font-weight:600;list-style:none}
+  details.settings>summary::-webkit-details-marker{display:none}
+  details.settings>summary::before{content:"⚙ ";}
+  .grid-cfg{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;padding:0 16px 16px}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:12px;color:var(--muted)}
+  .field input{background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+    border-radius:7px;padding:7px 9px;font:inherit}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:0 0 16px;color:var(--muted);font-size:12.5px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .swatch{width:13px;height:13px;border-radius:3px;display:inline-block}
+  .warnbox{border:1px solid var(--warn);background:#332701;border-radius:10px;padding:10px 14px;margin-bottom:14px}
+  .warnbox.bad{border-color:var(--bad);background:#3a0f10}
+  .warnbox h4{margin:0 0 6px;font-size:13px;letter-spacing:.3px;text-transform:uppercase}
+  .warnbox ul{margin:0;padding-left:18px}
+  .warnbox li{margin:2px 0}
+  .months{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px}
+  .month{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .month h3{margin:0;padding:12px 14px 8px;font-size:15px;display:flex;justify-content:space-between;align-items:baseline}
+  .month h3 .mb{font-size:12px;color:var(--muted);font-weight:500}
+  .mstats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
+    border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:11px}
+  .mstats div{background:var(--panel);padding:6px 8px;text-align:center}
+  .mstats .lab{color:var(--muted);display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px}
+  .mstats .num{font-weight:700;font-size:13px}
+  .mstats .num.acc{color:var(--good)}
+  .mstats .num.use{color:var(--pto4)}
+  .dow{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;color:var(--muted);
+    font-size:10.5px;padding:6px 6px 0}
+  .days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding:6px}
+  .day{aspect-ratio:1/1;border:1px solid transparent;border-radius:8px;background:var(--panel2);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;
+    cursor:pointer;font-size:13px;user-select:none}
+  .day.out{background:transparent;cursor:default;color:#475569}
+  .day.disabled{opacity:.35;cursor:not-allowed}
+  .day:not(.out):not(.disabled):hover{border-color:var(--accent)}
+  .day .hh{font-size:9px;line-height:1;margin-top:2px}
+  .day.weekend{background:#1b2740}
+  .day.holiday{background:#3a2c05;color:#fde68a;border-color:#7c5e12}
+  .day.pe::after{content:"$";position:absolute;top:2px;right:4px;font-size:9px;color:var(--good);opacity:.8}
+  .day.today{outline:2px solid var(--today);outline-offset:0}
+  .day.pto8{background:var(--pto);color:#fff}
+  .day.pto4{background:var(--pto4);color:#08213f}
+  .day.custom{background:var(--custom);color:#fff}
+  .day.nopay{background:var(--nopay);color:#fff}
+  .day.negbal{box-shadow:inset 0 0 0 2px var(--bad)}
+  .pop{position:absolute;z-index:50;background:var(--panel);border:1px solid var(--accent);
+    border-radius:10px;padding:8px;box-shadow:0 12px 30px rgba(0,0,0,.5);width:190px}
+  .pop .pd{font-size:12px;color:var(--muted);margin:2px 4px 8px}
+  .pop button{display:block;width:100%;text-align:left;margin:3px 0;padding:7px 9px}
+  .pop .row{display:flex;gap:6px}
+  .pop .row input{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:7px;padding:6px}
+  .pop .rm{border-color:#7f1d1d;color:#fca5a5}
+  .tip{position:fixed;z-index:60;background:#0b1220;border:1px solid var(--line);border-radius:8px;
+    padding:8px 10px;font-size:11.5px;max-width:230px;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+  .tip b{color:var(--accent2)}
+  footer{color:var(--muted);font-size:12px;padding:24px 20px;text-align:center;border-top:1px solid var(--line);margin-top:30px}
+  .pill{display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px;border:1px solid var(--line)}
+</style>
+</head>
+<body>
+<header>
+  <div class="hrow">
+    <div class="brand">
+      <h1>PTO Calendar</h1>
+      <span class="who">Tracking <b id="whoName">Paolo</b> · VDC accrual policy</span>
+    </div>
+    <div class="stats">
+      <div class="stat big"><div class="k">Current balance</div><div class="v"><span id="curBal">–</span> <small>hrs</small> <small id="curDays"></small></div></div>
+      <div class="stat"><div class="k">End of 2026</div><div class="v"><span id="end26">–</span> <small>hrs</small></div></div>
+      <div class="stat"><div class="k">End of 2027</div><div class="v"><span id="end27">–</span> <small>hrs</small></div></div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <details class="settings">
+    <summary>Settings &amp; overrides</summary>
+    <div class="grid-cfg">
+      <div class="field"><label>Employee name</label><input id="cfgName" type="text"></div>
+      <div class="field"><label>Anchor period-end date</label><input id="cfgStart" type="date"></div>
+      <div class="field"><label>Starting balance (hrs) — override</label><input id="cfgStartBal" type="number" step="0.01"></div>
+      <div class="field"><label>Accrual per full 80-hr period (hrs)</label><input id="cfgAccrual" type="number" step="0.0001"></div>
+      <div class="field"><label>Range end date</label><input id="cfgEnd" type="date"></div>
+      <div class="field"><label>Hours per work day</label><input id="cfgHpd" type="number" step="0.5"></div>
+      <div class="field"><label>Year-end carryover cap (hrs)</label><input id="cfgCap" type="number" step="1"></div>
+      <div class="field"><label>Voluntary quit date (optional — forfeits balance)</label><input id="cfgQuit" type="date"></div>
+    </div>
+  </details>
+
+  <div class="toolbar">
+    <button id="btnToday">Jump to today</button>
+    <button id="btnExport">Export data</button>
+    <button id="btnImport">Import data</button>
+    <button id="btnReset" class="warnbtn">Reset all PTO</button>
+    <span class="pill">Rate 0.03846 hr / hr worked · 80 hr/yr</span>
+  </div>
+
+  <div class="legend">
+    <span><i class="swatch" style="background:var(--pto)"></i> Full day PTO (8 hr)</span>
+    <span><i class="swatch" style="background:var(--pto4)"></i> Half day (4 hr)</span>
+    <span><i class="swatch" style="background:var(--custom)"></i> Custom</span>
+    <span><i class="swatch" style="background:var(--nopay)"></i> Out — No Pay (strike)</span>
+    <span><i class="swatch" style="background:var(--holiday)"></i> Paid holiday</span>
+    <span><i class="swatch" style="background:var(--good)"></i> $ = biweekly accrual posts</span>
+  </div>
+
+  <div id="warnings"></div>
+  <div class="months" id="months"></div>
+</div>
+
+<footer>
+  Balances simulate VDC Section 6.5 accrual · Earn-first, no negative balance · 120 hr carryover cap ·
+  Data is saved locally in your browser only. <span id="strikeNote"></span>
+</footer>
+
+<script>
+/* ---------- date helpers (local, no TZ drift) ---------- */
+const pad=n=>String(n).padStart(2,'0');
+const ymd=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const parseYMD=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);};
+const addDays=(d,n)=>new Date(d.getFullYear(),d.getMonth(),d.getDate()+n);
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MON=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const TODAY='2026-08-31'; // "today" per app context; falls back to real date if outside range
+
+/* ---------- default config ---------- */
+const DEFAULTS={
+  name:'Paolo', startDate:'2026-08-22', startBalance:6.90,
+  accrualPerPeriod:3.0768, rangeEnd:'2027-12-31', hoursPerDay:8,
+  carryoverCap:120, quitDate:''
+};
+const KEY='ptoCalendarState.v1';
+
+/* ---------- state ---------- */
+let state=load();
+function load(){
+  try{const s=JSON.parse(localStorage.getItem(KEY));
+    if(s&&s.config&&s.entries){s.config={...DEFAULTS,...s.config};return s;}}catch(e){}
+  return {config:{...DEFAULTS}, entries:{}};
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
+
+/* ---------- holidays ---------- */
+function nthWeekday(y,m,wd,n){let d=new Date(y,m,1),c=0;while(true){if(d.getDay()===wd){if(++c===n)return d;}d=addDays(d,1);}}
+function lastWeekday(y,m,wd){let d=new Date(y,m+1,0);while(d.getDay()!==wd)d=addDays(d,-1);return d;}
+function holidaysForYear(y){
+  const h={};
+  h[ymd(new Date(y,0,1))]="New Year's Day";
+  h[ymd(lastWeekday(y,4,1))]="Memorial Day";
+  h[ymd(new Date(y,6,4))]="Independence Day";
+  h[ymd(nthWeekday(y,8,1,1))]="Labor Day";
+  const tx=nthWeekday(y,10,4,4);
+  h[ymd(tx)]="Thanksgiving";
+  h[ymd(addDays(tx,1))]="Day after Thanksgiving";
+  h[ymd(new Date(y,11,25))]="Christmas Day";
+  return h;
+}
+
+/* ---------- core engine ---------- */
+function compute(){
+  const c=state.config;
+  const start=parseYMD(c.startDate), end=parseYMD(c.rangeEnd);
+  const rate=c.accrualPerPeriod/80;
+  const quit=c.quitDate?c.quitDate:null;
+
+  // holidays across spanned years
+  let holidays={};
+  for(let y=start.getFullYear();y<=end.getFullYear();y++)holidays={...holidays,...holidaysForYear(y)};
+
+  // biweekly period-end dates (accrual posts here)
+  const periodEnds=new Set();
+  for(let p=addDays(start,14);p<=end;p=addDays(p,14))periodEnds.add(ymd(p));
+
+  let balance=c.startBalance, quitted=false;
+  const daily={}, months={}, forfeitures={}, ytdUsed={};
+  const warnings=[]; const overdrawDays=[]; let strikes=0; const strikeDays=[];
+
+  for(let d=new Date(start); d<=end; d=addDays(d,1)){
+    const key=ymd(d), mk=key.slice(0,7), yr=key.slice(0,4);
+    if(!(mk in months))months[mk]={start:balance,accrued:0,used:0,end:balance,ytd:0};
+
+    let accrued=0, used=0;
+    const e=state.entries[key];
+
+    if(!quitted && periodEnds.has(key)){
+      // subtract no-pay (unpaid) hours in the 14-day window ending today
+      let np=0;
+      for(let i=0;i<14;i++){const w=state.entries[ymd(addDays(d,-i))];if(w&&w.type==='nopay')np+=c.hoursPerDay;}
+      const worked=Math.max(0,80-np);
+      accrued=worked*rate; balance+=accrued; months[mk].accrued+=accrued;
+    }
+
+    if(e&&e.type==='nopay'){strikes++;strikeDays.push(key);}
+    if(!quitted && e && e.type!=='nopay'){
+      used=e.hours; balance-=used; months[mk].used+=used;
+      ytdUsed[yr]=(ytdUsed[yr]||0)+used;
+      if(balance< -1e-9)overdrawDays.push(key);
+    }
+
+    // voluntary quit → forfeit remainder, stop everything after
+    if(!quitted && quit===key){forfeitures['quit_'+yr]=balance;balance=0;quitted=true;}
+
+    // year-end carryover cap
+    if(key.slice(5)==='12-31' && !quitted && balance>c.carryoverCap){
+      forfeitures[yr]=balance-c.carryoverCap; balance=c.carryoverCap;
+    }
+
+    months[mk].end=balance; months[mk].ytd=ytdUsed[yr]||0;
+    daily[key]={bal:balance,accrued,used,entry:e||null,holiday:holidays[key]||null,
+                periodEnd:periodEnds.has(key),negative:balance< -1e-9};
+  }
+
+  /* ---- rule warnings ---- */
+  if(overdrawDays.length)
+    warnings.push({bad:true,msg:`Negative balance on ${overdrawDays.length} day(s) — you can only use PTO you've already earned. First: ${overdrawDays[0]}.`});
+
+  // year-end forfeiture (cap)
+  Object.keys(forfeitures).filter(k=>!k.startsWith('quit_')).forEach(y=>{
+    warnings.push({bad:false,msg:`Dec 31 ${y}: balance exceeded the ${c.carryoverCap} hr carryover cap — ${forfeitures[y].toFixed(2)} hr forfeited.`});
+  });
+  Object.keys(forfeitures).filter(k=>k.startsWith('quit_')).forEach(k=>{
+    warnings.push({bad:true,msg:`Voluntary quit on ${quit}: remaining ${forfeitures[k].toFixed(2)} hr forfeited (Texas requires no payout).`});
+  });
+
+  // 2-week / 1-month-gap rule when >80 hr banked
+  const ptoKeys=Object.keys(state.entries).filter(k=>state.entries[k].type!=='nopay').sort();
+  const chunks=[]; let cur=null;
+  ptoKeys.forEach(k=>{
+    if(!cur){cur={s:k,e:k,hours:state.entries[k].hours};}
+    else{
+      const gap=(parseYMD(k)-parseYMD(cur.e))/86400000;
+      if(gap<=3){cur.e=k;cur.hours+=state.entries[k].hours;}
+      else{chunks.push(cur);cur={s:k,e:k,hours:state.entries[k].hours};}
+    }
+  });
+  if(cur)chunks.push(cur);
+  chunks.forEach((ch,i)=>{
+    const balAt=daily[ch.s]?daily[ch.s].bal+daily[ch.s].used:null; // balance just before this chunk's use
+    if(balAt!=null && balAt>80 && ch.hours>80)
+      warnings.push({bad:false,msg:`PTO block ${ch.s}→${ch.e} uses ${ch.hours} hr while >80 hr banked — policy caps a single stretch at 2 weeks (80 hr).`});
+    if(i>0){
+      const prev=chunks[i-1];
+      const gapDays=(parseYMD(ch.s)-parseYMD(prev.e))/86400000;
+      const prevBal=daily[prev.s]?daily[prev.s].bal+daily[prev.s].used:0;
+      if(prevBal>80 && gapDays<30)
+        warnings.push({bad:false,msg:`Only ${Math.round(gapDays)} days between PTO blocks (${prev.e} → ${ch.s}); a 1-month gap is required when >80 hr is banked.`});
+    }
+  });
+
+  if(strikes>=12)
+    warnings.push({bad:true,msg:`${strikes} Out-No-Pay strikes recorded — 12+ strikes means no raises, promotion, or bonus.`});
+  else if(strikes>0)
+    warnings.push({bad:false,msg:`${strikes} Out-No-Pay strike(s) recorded (12 = no raises/promotion/bonus).`});
+
+  warnings.push({bad:false,note:true,msg:'All PTO requires supervisor approval before it is final.'});
+
+  return {daily,months,warnings,holidays,periodEnds,start,end,strikes,ytdUsed};
+}
+
+/* ---------- rendering ---------- */
+const $=id=>document.getElementById(id);
+let model=null;
+
+function fmt(n){return (Math.round(n*100)/100).toFixed(2);}
+function daysOf(h){return (Math.round((h/state.config.hoursPerDay)*100)/100);}
+
+function render(){
+  model=compute();
+  const c=state.config;
+
+  $('whoName').textContent=c.name;
+  const cur=model.daily[TODAY]?model.daily[TODAY].bal:c.startBalance;
+  $('curBal').textContent=fmt(cur);
+  $('curDays').textContent='('+daysOf(cur)+' d)';
+  const e26=model.daily[dayBefore('2027-01-01')]; // last posted day of 2026 <= range
+  $('end26').textContent = model.daily['2026-12-31']?fmt(model.daily['2026-12-31'].bal):'–';
+  $('end27').textContent = model.daily['2027-12-31']?fmt(model.daily['2027-12-31'].bal):'–';
+
+  // settings inputs
+  $('cfgName').value=c.name; $('cfgStart').value=c.startDate;
+  $('cfgStartBal').value=c.startBalance; $('cfgAccrual').value=c.accrualPerPeriod;
+  $('cfgEnd').value=c.rangeEnd; $('cfgHpd').value=c.hoursPerDay;
+  $('cfgCap').value=c.carryoverCap; $('cfgQuit').value=c.quitDate||'';
+
+  renderWarnings();
+  renderMonths();
+  $('strikeNote').textContent = model.strikes?`· ${model.strikes} strike(s) on record`:'';
+  save();
+}
+function dayBefore(s){return ymd(addDays(parseYMD(s),-1));}
+
+function renderWarnings(){
+  const box=$('warnings'); box.innerHTML='';
+  const bad=model.warnings.filter(w=>w.bad);
+  const soft=model.warnings.filter(w=>!w.bad);
+  if(bad.length){
+    box.appendChild(mkWarn('Blocking / serious',bad,true));
+  }
+  if(soft.length){
+    box.appendChild(mkWarn('Policy notes',soft,false));
+  }
+}
+function mkWarn(title,items,isBad){
+  const d=document.createElement('div');
+  d.className='warnbox'+(isBad?' bad':'');
+  d.innerHTML=`<h4>${title}</h4>`;
+  const ul=document.createElement('ul');
+  items.forEach(w=>{const li=document.createElement('li');li.textContent=w.msg;ul.appendChild(li);});
+  d.appendChild(ul); return d;
+}
+
+function renderMonths(){
+  const host=$('months'); host.innerHTML='';
+  const start=model.start, end=model.end;
+  let y=start.getFullYear(), m=start.getMonth();
+  while(y<end.getFullYear()||(y===end.getFullYear()&&m<=end.getMonth())){
+    host.appendChild(monthCard(y,m));
+    m++; if(m>11){m=0;y++;}
+  }
+}
+
+function monthCard(y,m){
+  const mk=y+'-'+pad(m+1);
+  const ms=model.months[mk]||{start:0,accrued:0,used:0,end:0,ytd:0};
+  const card=document.createElement('div'); card.className='month';
+  card.dataset.mk=mk;
+  card.innerHTML=`<h3>${MON[m]} ${y}<span class="mb">YTD used ${fmt(ms.ytd)} hr</span></h3>
+    <div class="mstats">
+      <div><span class="lab">Start</span><span class="num">${fmt(ms.start)}</span></div>
+      <div><span class="lab">Accrued</span><span class="num acc">+${fmt(ms.accrued)}</span></div>
+      <div><span class="lab">Used</span><span class="num use">−${fmt(ms.used)}</span></div>
+      <div><span class="lab">End</span><span class="num">${fmt(ms.end)}</span></div>
+    </div>
+    <div class="dow">${DOW.map(d=>`<div>${d}</div>`).join('')}</div>`;
+  const days=document.createElement('div'); days.className='days';
+
+  const first=new Date(y,m,1), lead=first.getDay(), dim=new Date(y,m+1,0).getDate();
+  for(let i=0;i<lead;i++){const o=document.createElement('div');o.className='day out';days.appendChild(o);}
+  const startK=state.config.startDate, endK=state.config.rangeEnd;
+  for(let dnum=1;dnum<=dim;dnum++){
+    const dt=new Date(y,m,dnum), key=ymd(dt);
+    const cell=document.createElement('div'); cell.className='day'; cell.dataset.key=key;
+    const inRange = key>=startK && key<=endK;
+    const info=model.daily[key];
+    if((dt.getDay()===0||dt.getDay()===6))cell.classList.add('weekend');
+    if(!inRange)cell.classList.add('disabled');
+    if(info&&info.holiday)cell.classList.add('holiday');
+    if(info&&info.periodEnd)cell.classList.add('pe');
+    if(key===TODAY)cell.classList.add('today');
+    const e=state.entries[key];
+    let hh='';
+    if(e){
+      if(e.type==='nopay'){cell.classList.add('nopay');hh='NP';}
+      else if(e.type==='pto4'){cell.classList.add('pto4');hh='4h';}
+      else if(e.type==='pto8'){cell.classList.add('pto8');hh='8h';}
+      else{cell.classList.add('custom');hh=e.hours+'h';}
+    } else if(info&&info.holiday){hh='hol';}
+    if(info&&info.negative)cell.classList.add('negbal');
+    cell.innerHTML=`<span>${dnum}</span>${hh?`<span class="hh">${hh}</span>`:''}`;
+    if(inRange){
+      cell.addEventListener('click',ev=>{ev.stopPropagation();openPopover(cell,key);});
+      cell.addEventListener('mousemove',ev=>showTip(ev,key));
+      cell.addEventListener('mouseleave',hideTip);
+    }
+    days.appendChild(cell);
+  }
+  card.appendChild(days);
+  return card;
+}
+
+/* ---------- tooltip ---------- */
+let tipEl=null;
+function showTip(ev,key){
+  const info=model.daily[key]; if(!info)return;
+  if(!tipEl){tipEl=document.createElement('div');tipEl.className='tip';document.body.appendChild(tipEl);}
+  const e=state.entries[key];
+  let lines=[`<b>${key}</b>`];
+  if(info.holiday)lines.push(`Paid holiday: ${info.holiday} (8 hr, not from PTO)`);
+  if(info.periodEnd)lines.push(`Biweekly period end: +${fmt(info.accrued)} hr accrued`);
+  if(e&&e.type==='nopay')lines.push(`Out — No Pay (strike, unpaid, no accrual)`);
+  else if(e)lines.push(`PTO used: ${e.hours} hr (${daysOf(e.hours)} d)`);
+  lines.push(`Running balance: <b>${fmt(info.bal)} hr</b> (${daysOf(info.bal)} d)`);
+  tipEl.innerHTML=lines.join('<br>');
+  tipEl.style.left=Math.min(ev.clientX+14,innerWidth-240)+'px';
+  tipEl.style.top=(ev.clientY+14)+'px';
+  tipEl.style.display='block';
+}
+function hideTip(){if(tipEl)tipEl.style.display='none';}
+
+/* ---------- popover picker ---------- */
+let popEl=null;
+function closePopover(){if(popEl){popEl.remove();popEl=null;document.removeEventListener('click',closePopover);}}
+function openPopover(cell,key){
+  closePopover(); hideTip();
+  const e=state.entries[key];
+  popEl=document.createElement('div'); popEl.className='pop';
+  popEl.addEventListener('click',ev=>ev.stopPropagation());
+  const cur=e?(e.type==='nopay'?'Out — No Pay':e.hours+' hr'):'none';
+  popEl.innerHTML=`<div class="pd">${key} · current: ${cur}</div>`;
+  const mkBtn=(label,fn,cls='')=>{const b=document.createElement('button');b.textContent=label;if(cls)b.className=cls;b.onclick=()=>{fn();closePopover();render();};return b;};
+  popEl.appendChild(mkBtn('Add 4 hr (half day)',()=>setEntry(key,{type:'pto4',hours:4})));
+  popEl.appendChild(mkBtn('Add 8 hr (full day)',()=>setEntry(key,{type:'pto8',hours:8})));
+  // custom row
+  const row=document.createElement('div'); row.className='row';
+  const inp=document.createElement('input'); inp.type='number'; inp.step='0.5'; inp.placeholder='custom hrs';
+  if(e&&e.type==='custom')inp.value=e.hours;
+  const go=document.createElement('button'); go.textContent='Set';
+  go.onclick=()=>{const v=parseFloat(inp.value);if(v>0){setEntry(key,{type:'custom',hours:v});closePopover();render();}};
+  row.appendChild(inp); row.appendChild(go); popEl.appendChild(row);
+  popEl.appendChild(mkBtn('Out — No Pay (strike)',()=>setEntry(key,{type:'nopay',hours:0})));
+  if(e)popEl.appendChild(mkBtn('Remove',()=>{delete state.entries[key];},'rm'));
+
+  document.body.appendChild(popEl);
+  const r=cell.getBoundingClientRect();
+  let left=r.left+window.scrollX, top=r.bottom+window.scrollY+4;
+  if(left+200>window.scrollX+innerWidth)left=window.scrollX+innerWidth-200;
+  popEl.style.left=left+'px'; popEl.style.top=top+'px';
+  setTimeout(()=>document.addEventListener('click',closePopover),0);
+}
+function setEntry(key,val){state.entries[key]=val;}
+
+/* ---------- settings wiring ---------- */
+function bindCfg(id,field,parse){
+  $(id).addEventListener('change',()=>{
+    let v=$(id).value; if(parse)v=parse(v);
+    state.config[field]=v; render();
+  });
+}
+bindCfg('cfgName','name');
+bindCfg('cfgStart','startDate');
+bindCfg('cfgStartBal','startBalance',parseFloat);
+bindCfg('cfgAccrual','accrualPerPeriod',parseFloat);
+bindCfg('cfgEnd','rangeEnd');
+bindCfg('cfgHpd','hoursPerDay',parseFloat);
+bindCfg('cfgCap','carryoverCap',parseFloat);
+bindCfg('cfgQuit','quitDate',v=>v||'');
+
+/* ---------- toolbar ---------- */
+$('btnToday').onclick=()=>{
+  const card=[...document.querySelectorAll('.month')].find(c=>c.dataset.mk===TODAY.slice(0,7));
+  if(card)card.scrollIntoView({behavior:'smooth',block:'center'});
+};
+$('btnReset').onclick=()=>{if(confirm('Clear all PTO / No-Pay entries? Settings are kept.')){state.entries={};render();}};
+$('btnExport').onclick=()=>{
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='pto-calendar-data.json';a.click();
+};
+$('btnImport').onclick=()=>{
+  const inp=document.createElement('input');inp.type='file';inp.accept='application/json';
+  inp.onchange=()=>{const f=inp.files[0];if(!f)return;const r=new FileReader();
+    r.onload=()=>{try{const s=JSON.parse(r.result);if(s.config&&s.entries){state={config:{...DEFAULTS,...s.config},entries:s.entries};render();}else alert('Invalid file.');}catch(e){alert('Could not read file.');}};
+    r.readAsText(f);};
+  inp.click();
+};
+
+render();
+</script>
+</body>
+</html>

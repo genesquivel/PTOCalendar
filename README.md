@@ -28,7 +28,10 @@ simulations persist between opens.
 - **Monthly cumulative** — month-end becomes next month's start, so multi-month
   PTO is fully accounted for.
 - **7 paid VDC holidays** — New Year's, Memorial, Independence, Labor, Thanksgiving,
-  Day after Thanksgiving, Christmas — 8 hrs paid, **not** drawn from PTO.
+  Day after Thanksgiving, Christmas — 8 hrs paid, **not** drawn from PTO. Fixed-date
+  holidays follow the OPM observance rule: a Saturday holiday is observed the
+  preceding Friday, a Sunday holiday the following Monday (e.g. Independence Day
+  2027 → Mon Jul 5; Christmas 2027 → Fri Dec 24), marked "(observed)".
 
 ## Accrual logic (Section 6.5)
 

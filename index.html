@@ -208,16 +208,26 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
 /* ---------- holidays ---------- */
 function nthWeekday(y,m,wd,n){let d=new Date(y,m,1),c=0;while(true){if(d.getDay()===wd){if(++c===n)return d;}d=addDays(d,1);}}
 function lastWeekday(y,m,wd){let d=new Date(y,m+1,0);while(d.getDay()!==wd)d=addDays(d,-1);return d;}
+// OPM observance: a holiday on Saturday is observed the preceding Friday,
+// on Sunday the following Monday. Floating holidays already land on weekdays.
+function observed(d){
+  const wd=d.getDay();
+  if(wd===6)return addDays(d,-1); // Sat -> Fri
+  if(wd===0)return addDays(d,1);  // Sun -> Mon
+  return d;
+}
 function holidaysForYear(y){
   const h={};
-  h[ymd(new Date(y,0,1))]="New Year's Day";
-  h[ymd(lastWeekday(y,4,1))]="Memorial Day";
-  h[ymd(new Date(y,6,4))]="Independence Day";
-  h[ymd(nthWeekday(y,8,1,1))]="Labor Day";
+  const add=(d,name,shift)=>{const o=shift?observed(d):d;
+    h[ymd(o)]= (ymd(o)!==ymd(d)) ? name+" (observed)" : name;};
+  add(new Date(y,0,1),"New Year's Day",true);
+  add(lastWeekday(y,4,1),"Memorial Day",false);
+  add(new Date(y,6,4),"Independence Day",true);
+  add(nthWeekday(y,8,1,1),"Labor Day",false);
   const tx=nthWeekday(y,10,4,4);
-  h[ymd(tx)]="Thanksgiving";
-  h[ymd(addDays(tx,1))]="Day after Thanksgiving";
-  h[ymd(new Date(y,11,25))]="Christmas Day";
+  add(tx,"Thanksgiving",false);
+  add(addDays(tx,1),"Day after Thanksgiving",false);
+  add(new Date(y,11,25),"Christmas Day",true);
   return h;
 }
 

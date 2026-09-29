@@ -57,12 +57,19 @@ simulations persist between opens.
 
 ## Baselines
 
-With no PTO entered:
+The app is calibrated to a real payroll anchor: **as of the 09/25/2026 pay date
+(period 09/06–09/19), available = 12.98 hrs.** Everything projects forward from that
+known number. With no PTO entered:
 
 | Milestone | Balance |
 |---|---|
-| End of 2026 | ~34.6 hrs |
-| End of 2027 | ~114.6 hrs (right under the 120 cap) |
+| Current (as of today, in range) | 12.98 hrs |
+| End of 2026 | ~34.5 hrs |
+| End of 2027 | ~114.5 hrs (right under the 120 cap) |
+
+The pure Aug-22 model projected 13.05 at that point, so real accrual ran ~0.07 hr
+light — the September card folds that correction into its accrued figure so it still
+reconciles (start + accrued − used = end). "Today" tracks the viewer's real date.
 
 > Note: end-of-2026 depends on whether the late-December biweekly period is counted
 > in the year it *ends* (34.6) or the year it's *paid* (~31.5). The model counts it

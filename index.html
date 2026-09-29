@@ -169,23 +169,39 @@ const parseYMD=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d
 const addDays=(d,n)=>new Date(d.getFullYear(),d.getMonth(),d.getDate()+n);
 const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const MON=['January','February','March','April','May','June','July','August','September','October','November','December'];
-const TODAY='2026-08-31'; // "today" per app context; falls back to real date if outside range
+let TODAY; // the viewer's real date, clamped to the tracked range; recomputed each render
+function clampToday(){
+  const c=state.config, t=ymd(new Date());
+  return t<c.startDate ? c.startDate : (t>c.rangeEnd ? c.rangeEnd : t);
+}
 
 /* ---------- default config ---------- */
 const DEFAULTS={
   name:'Paolo', startDate:'2026-08-22', startBalance:6.90,
   accrualPerPeriod:3.0768, rangeEnd:'2027-12-31', hoursPerDay:8,
   carryoverCap:120, quitDate:'',
-  asOfDate:'', asOfBalance:''   // optional: force a known real balance on a date
+  // Real payroll anchor: as of pay date 09/25/2026 (period 09/06–09/19), available = 12.98 hr
+  asOfDate:'2026-09-25', asOfBalance:12.98
 };
 const KEY='ptoCalendarState.v1';
+const DATA_VERSION=2;
 
 /* ---------- state ---------- */
 let state=load();
 function load(){
   try{const s=JSON.parse(localStorage.getItem(KEY));
-    if(s&&s.config&&s.entries){s.config={...DEFAULTS,...s.config};return s;}}catch(e){}
-  return {config:{...DEFAULTS}, entries:{}};
+    if(s&&s.config&&s.entries){
+      s.config={...DEFAULTS,...s.config};
+      // Migrate sessions saved before the real 09/25 payroll anchor existed,
+      // injecting the calibration while keeping any PTO the user entered.
+      if(!s.version||s.version<2){
+        s.config.asOfDate=DEFAULTS.asOfDate;
+        s.config.asOfBalance=DEFAULTS.asOfBalance;
+      }
+      s.version=DATA_VERSION;
+      return s;
+    }}catch(e){}
+  return {config:{...DEFAULTS}, entries:{}, version:DATA_VERSION};
 }
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
 
@@ -233,8 +249,9 @@ function compute(){
     const key=ymd(d), mk=key.slice(0,7), yr=key.slice(0,4);
     if(!(mk in months))months[mk]={start:balance,accrued:0,used:0,end:balance,ytd:0};
 
-    // snap to a known real balance at the start of the as-of day
-    if(asOfDate && key===asOfDate){balance=asOfBal; months[mk].start=balance;}
+    // snap to a known real balance; fold the correction into this month's
+    // accrual so the month card still reconciles (start + accrued − used = end)
+    if(asOfDate && key===asOfDate){months[mk].accrued+=asOfBal-balance; balance=asOfBal;}
 
     let accrued=0, used=0;
     const e=state.entries[key];
@@ -325,6 +342,7 @@ function fmt(n){return (Math.round(n*100)/100).toFixed(2);}
 function daysOf(h){return (Math.round((h/state.config.hoursPerDay)*100)/100);}
 
 function render(){
+  TODAY=clampToday();
   model=compute();
   const c=state.config;
 
